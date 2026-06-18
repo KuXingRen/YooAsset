@@ -1,23 +1,32 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
-using System.Diagnostics;
 
 namespace YooAsset
 {
+    /// <summary>
+    /// 二进制缓冲区读取器，数据以小端字节序存储
+    /// </summary>
     internal class BufferReader
     {
+        private readonly char[] _hashChars = new char[32];
         private readonly byte[] _buffer;
-        private int _index = 0;
+        private int _position = 0;
 
+        /// <summary>
+        /// 使用指定的字节数组创建缓冲区读取器
+        /// </summary>
         public BufferReader(byte[] data)
         {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
             _buffer = data;
         }
 
         /// <summary>
-        /// 是否有效
+        /// 缓冲区是否包含有效数据
         /// </summary>
         public bool IsValid
         {
@@ -31,118 +40,171 @@ namespace YooAsset
         }
 
         /// <summary>
-        /// 缓冲区容量
+        /// 缓冲区的总字节数
         /// </summary>
         public int Capacity
         {
             get { return _buffer.Length; }
         }
 
+        /// <summary>
+        /// 读取指定数量的字节
+        /// </summary>
         public byte[] ReadBytes(int count)
         {
-            CheckReaderIndex(count);
+            EnsureCapacity(count);
             var data = new byte[count];
-            Buffer.BlockCopy(_buffer, _index, data, 0, count);
-            _index += count;
+            Buffer.BlockCopy(_buffer, _position, data, 0, count);
+            _position += count;
             return data;
         }
+
+        /// <summary>
+        /// 读取单个字节
+        /// </summary>
         public byte ReadByte()
         {
-            CheckReaderIndex(1);
-            return _buffer[_index++];
+            EnsureCapacity(1);
+            return _buffer[_position++];
         }
 
-        public bool ReadBool()
+        /// <summary>
+        /// 读取布尔值
+        /// </summary>
+        public bool ReadBoolean()
         {
-            CheckReaderIndex(1);
-            return _buffer[_index++] == 1;
+            EnsureCapacity(1);
+            return _buffer[_position++] == 1;
         }
+
+        /// <summary>
+        /// 读取16位有符号整数
+        /// </summary>
         public short ReadInt16()
         {
-            CheckReaderIndex(2);
-            if (BitConverter.IsLittleEndian)
-            {
-                short value = (short)((_buffer[_index]) | (_buffer[_index + 1] << 8));
-                _index += 2;
-                return value;
-            }
-            else
-            {
-                short value = (short)((_buffer[_index] << 8) | (_buffer[_index + 1]));
-                _index += 2;
-                return value;
-            }
+            EnsureCapacity(2);
+            short value = (short)((_buffer[_position]) | (_buffer[_position + 1] << 8));
+            _position += 2;
+            return value;
         }
+        /// <summary>
+        /// 读取16位无符号整数
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ushort ReadUInt16()
         {
             return (ushort)ReadInt16();
         }
+
+        /// <summary>
+        /// 读取32位有符号整数
+        /// </summary>
         public int ReadInt32()
         {
-            CheckReaderIndex(4);
-            if (BitConverter.IsLittleEndian)
-            {
-                int value = (_buffer[_index]) | (_buffer[_index + 1] << 8) | (_buffer[_index + 2] << 16) | (_buffer[_index + 3] << 24);
-                _index += 4;
-                return value;
-            }
-            else
-            {
-                int value = (_buffer[_index] << 24) | (_buffer[_index + 1] << 16) | (_buffer[_index + 2] << 8) | (_buffer[_index + 3]);
-                _index += 4;
-                return value;
-            }
+            EnsureCapacity(4);
+            int value = (_buffer[_position]) | (_buffer[_position + 1] << 8) | (_buffer[_position + 2] << 16) | (_buffer[_position + 3] << 24);
+            _position += 4;
+            return value;
         }
+
+        /// <summary>
+        /// 读取32位无符号整数
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint ReadUInt32()
         {
             return (uint)ReadInt32();
         }
+
+        /// <summary>
+        /// 读取64位有符号整数
+        /// </summary>
         public long ReadInt64()
         {
-            CheckReaderIndex(8);
-            if (BitConverter.IsLittleEndian)
-            {
-                int i1 = (_buffer[_index]) | (_buffer[_index + 1] << 8) | (_buffer[_index + 2] << 16) | (_buffer[_index + 3] << 24);
-                int i2 = (_buffer[_index + 4]) | (_buffer[_index + 5] << 8) | (_buffer[_index + 6] << 16) | (_buffer[_index + 7] << 24);
-                _index += 8;
-                return (uint)i1 | ((long)i2 << 32);
-            }
-            else
-            {
-                int i1 = (_buffer[_index] << 24) | (_buffer[_index + 1] << 16) | (_buffer[_index + 2] << 8) | (_buffer[_index + 3]);
-                int i2 = (_buffer[_index + 4] << 24) | (_buffer[_index + 5] << 16) | (_buffer[_index + 6] << 8) | (_buffer[_index + 7]);
-                _index += 8;
-                return (uint)i2 | ((long)i1 << 32);
-            }
+            EnsureCapacity(8);
+            int i1 = (_buffer[_position]) | (_buffer[_position + 1] << 8) | (_buffer[_position + 2] << 16) | (_buffer[_position + 3] << 24);
+            int i2 = (_buffer[_position + 4]) | (_buffer[_position + 5] << 8) | (_buffer[_position + 6] << 16) | (_buffer[_position + 7] << 24);
+            _position += 8;
+            return (uint)i1 | ((long)i2 << 32);
         }
+        /// <summary>
+        /// 读取64位无符号整数
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong ReadUInt64()
         {
             return (ulong)ReadInt64();
         }
 
-        public void SkipUTF8()
+        /// <summary>
+        /// 跳过一个UTF8编码的字符串
+        /// </summary>
+        public void SkipString()
         {
             ushort count = ReadUInt16();
             if (count == 0)
                 return;
 
-            CheckReaderIndex(count);
-            _index += count;
+            EnsureCapacity(count);
+            _position += count;
         }
-        public string ReadUTF8()
+
+        /// <summary>
+        /// 读取UTF8编码的字符串
+        /// </summary>
+        public string ReadString()
         {
             ushort count = ReadUInt16();
             if (count == 0)
                 return string.Empty;
 
-            CheckReaderIndex(count);
-            string value = Encoding.UTF8.GetString(_buffer, _index, count);
-            _index += count;
+            EnsureCapacity(count);
+            string value = Encoding.UTF8.GetString(_buffer, _position, count);
+            _position += count;
             return value;
         }
+
+        /// <summary>
+        /// 读取哈希值（16字节数据转换为32位哈希值）
+        /// </summary>
+        public string ReadHash16()
+        {
+            EnsureCapacity(16);
+            for (int i = 0; i < 16; i++)
+            {
+                byte b = _buffer[_position++];
+                _hashChars[i * 2] = GetHexChar(b >> 4);
+                _hashChars[i * 2 + 1] = GetHexChar(b & 0xF);
+            }
+            return new string(_hashChars);
+        }
+
+        /// <summary>
+        /// 读取16位无符号整数数组
+        /// </summary>
+        public ushort[] ReadUInt16Array()
+        {
+            ushort count = ReadUInt16();
+            if (count == 0)
+                return Array.Empty<ushort>();
+
+            ushort[] values = new ushort[count];
+            for (int i = 0; i < count; i++)
+            {
+                values[i] = ReadUInt16();
+            }
+            return values;
+        }
+
+        /// <summary>
+        /// 读取32位有符号整数数组
+        /// </summary>
         public int[] ReadInt32Array()
         {
             ushort count = ReadUInt16();
+            if (count == 0)
+                return Array.Empty<int>();
+
             int[] values = new int[count];
             for (int i = 0; i < count; i++)
             {
@@ -150,9 +212,16 @@ namespace YooAsset
             }
             return values;
         }
+
+        /// <summary>
+        /// 读取64位有符号整数数组
+        /// </summary>
         public long[] ReadInt64Array()
         {
             ushort count = ReadUInt16();
+            if (count == 0)
+                return Array.Empty<long>();
+
             long[] values = new long[count];
             for (int i = 0; i < count; i++)
             {
@@ -160,24 +229,37 @@ namespace YooAsset
             }
             return values;
         }
-        public string[] ReadUTF8Array()
+
+        /// <summary>
+        /// 读取UTF8编码的字符串数组
+        /// </summary>
+        public string[] ReadStringArray()
         {
             ushort count = ReadUInt16();
+            if (count == 0)
+                return Array.Empty<string>();
+
             string[] values = new string[count];
             for (int i = 0; i < count; i++)
             {
-                values[i] = ReadUTF8();
+                values[i] = ReadString();
             }
             return values;
         }
 
-        [Conditional("DEBUG")]
-        private void CheckReaderIndex(int length)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureCapacity(int length)
         {
-            if (_index + length > Capacity)
+            if (_position + length > Capacity)
             {
-                throw new IndexOutOfRangeException();
+                throw new InvalidOperationException("Insufficient buffer capacity.");
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static char GetHexChar(int value)
+        {
+            return (char)(value < 10 ? '0' + value : 'a' + value - 10);
         }
     }
 }
